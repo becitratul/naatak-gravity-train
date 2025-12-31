@@ -261,16 +261,33 @@ export default function Simulation() {
 
                     return (
                       <>
-                        <line
-                          x1={x1}
-                          y1={y1}
-                          x2={x2}
-                          y2={y2}
-                          stroke="url(#tunnelGrad)"
-                          strokeWidth="6"
-                          strokeLinecap="round"
-                        />
+                        {/* Tunnel - only visible when playing or has progress */}
+                        {(isPlaying || progress > 0) && (
+                          <>
+                            {/* Traveled portion (left of train) - green */}
+                            <line
+                              x1={x1}
+                              y1={y1}
+                              x2={trainX}
+                              y2={trainY}
+                              stroke="#22c55e"
+                              strokeWidth="8"
+                              strokeLinecap="round"
+                            />
+                            {/* Remaining portion (right of train) - gray */}
+                            <line
+                              x1={trainX}
+                              y1={trainY}
+                              x2={x2}
+                              y2={y2}
+                              stroke="#64748b"
+                              strokeWidth="8"
+                              strokeLinecap="round"
+                            />
+                          </>
+                        )}
 
+                        {/* City endpoint markers - always visible */}
                         <circle cx={x1} cy={y1} r="8" fill="#60a5fa" />
                         <circle cx={x2} cy={y2} r="8" fill="#60a5fa" />
 
@@ -281,11 +298,26 @@ export default function Simulation() {
                           {cityB}
                         </text>
 
-                        <g>
-                          <circle cx={trainX} cy={trainY} r="10" fill="#a78bfa" />
-                          <circle cx={trainX} cy={trainY} r="16" fill="#a78bfa" opacity="0.3" />
-                          <circle cx={trainX} cy={trainY} r="22" fill="#a78bfa" opacity="0.15" className="animate-pulse" />
-                        </g>
+                        {/* Train - only visible when playing or has progress */}
+                        {(isPlaying || progress > 0) && (
+                          <g>
+                            {/* Progress label above the train */}
+                            <text 
+                              x={trainX} 
+                              y={trainY - 30} 
+                              fill="#f59e0b" 
+                              fontSize="14" 
+                              textAnchor="middle" 
+                              fontWeight="700"
+                            >
+                              {progress.toFixed(1)}%
+                            </text>
+                            {/* Train ball - orange/amber */}
+                            <circle cx={trainX} cy={trainY} r="10" fill="#f59e0b" />
+                            <circle cx={trainX} cy={trainY} r="16" fill="#f59e0b" opacity="0.3" />
+                            <circle cx={trainX} cy={trainY} r="22" fill="#f59e0b" opacity="0.15" className="animate-pulse" />
+                          </g>
+                        )}
                       </>
                     );
                   })()}
@@ -329,19 +361,6 @@ export default function Simulation() {
                   </Button>
                 </div>
 
-                {/* Progress bar */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Journey Progress</span>
-                    <span className="text-indigo-300 font-semibold">{progress.toFixed(1)}%</span>
-                  </div>
-                  <div className="h-3 bg-slate-700/50 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-100"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                </div>
               </div>
             </Card>
           </div>
