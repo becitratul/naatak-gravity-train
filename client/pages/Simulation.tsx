@@ -1,9 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Link } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { Play, Pause, RotateCcw, ArrowLeft, TrendingDown, MapPin } from "lucide-react";
+import { Play, Pause, RotateCcw, ArrowLeft, TrendingDown, MapPin, BookOpen, ExternalLink } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -41,17 +42,22 @@ const CITIES: City[] = [
   { name: "Seoul", lat: 37.5665, lng: 126.9780, country: "South Korea" },
   { name: "Toronto", lat: 43.6532, lng: -79.3832, country: "Canada" },
   { name: "Bangkok", lat: 13.7563, lng: 100.5018, country: "Thailand" },
+  { name: "Cupertino", lat: 37.3230, lng: -122.0322, country: "USA" },
+  { name: "New Delhi", lat: 28.6139, lng: 77.2090, country: "India" },
 ];
 
 export default function Simulation() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [speed, setSpeed] = useState(5);
-  const [cityA, setCityA] = useState<string>("New York");
-  const [cityB, setCityB] = useState<string>("London");
+  const [brachistoProgress, setBrachistoProgress] = useState(0);
+  const [showBrachistochrone, setShowBrachistochrone] = useState(false);
+  const [speed, setSpeed] = useState(20);
+  const [cityA, setCityA] = useState<string>("Cupertino");
+  const [cityB, setCityB] = useState<string>("New Delhi");
   const animationRef = useRef<number>();
 
-  const TOTAL_TIME = 2532; // 42 minutes 12 seconds in seconds
+  const TOTAL_TIME = 2532; // 42 minutes 12 seconds in seconds (gravity tunnel)
+  const BRACHISTO_TIME = 2268; // ~37.8 minutes - Brachistochrone is faster!
   const EARTH_RADIUS = 6371; // km
 
   // Calculate distance between two cities
@@ -85,16 +91,20 @@ export default function Simulation() {
         const deltaTime = (currentTime - lastTime) / 1000;
         lastTime = currentTime;
 
+        // Update gravity tunnel progress
         setProgress((prev) => {
           const increment = (deltaTime * speed / TOTAL_TIME) * 100;
           const newProgress = prev + increment;
-
-          if (newProgress >= 100) {
-            setIsPlaying(false);
-            return 100;
-          }
-          return newProgress;
+          return Math.min(newProgress, 100);
         });
+
+        if (showBrachistochrone) {
+          setBrachistoProgress((prev) => {
+            const increment = (deltaTime * speed / BRACHISTO_TIME) * 100;
+            const newProgress = prev + increment;
+            return Math.min(newProgress, 100);
+          });
+        }
 
         animationRef.current = requestAnimationFrame(animate);
       };
@@ -111,18 +121,32 @@ export default function Simulation() {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isPlaying, speed, TOTAL_TIME]);
+  }, [isPlaying, showBrachistochrone, speed, TOTAL_TIME, BRACHISTO_TIME]);
+
+  // Stop when both finish
+  useEffect(() => {
+    if (progress >= 100 && (!showBrachistochrone || brachistoProgress >= 100)) {
+      setIsPlaying(false);
+    }
+  }, [progress, brachistoProgress, showBrachistochrone]);
+
+  useEffect(() => {
+    if (!showBrachistochrone) {
+      setBrachistoProgress(0);
+    }
+  }, [showBrachistochrone]);
 
   const handleReset = () => {
     setIsPlaying(false);
     setProgress(0);
+    setBrachistoProgress(0);
   };
 
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
   };
 
-  // Calculate train position along the chord
+  // Calculate train position along the chord (gravity tunnel - straight line)
   const getTrainPosition = () => {
     const t = progress / 100;
     
@@ -134,7 +158,19 @@ export default function Simulation() {
     return { x, depth, chordLength };
   };
 
+  // Calculate position along Brachistochrone curve (cycloid)
+  const getBrachistoPosition = () => {
+    const t = brachistoProgress / 100;
+    // Parametric cycloid: x = r(θ - sinθ), y = r(1 - cosθ)
+    // We map t from 0 to 1 to θ from 0 to π
+    const theta = t * Math.PI;
+    const x = (theta - Math.sin(theta)) / Math.PI; // normalized to 0-1
+    const y = (1 - Math.cos(theta)) / 2; // normalized depth factor
+    return { x, y, t };
+  };
+
   const position = getTrainPosition();
+  const brachistoPosition = getBrachistoPosition();
   
   const currentSpeed = Math.sin(progress / 100 * Math.PI) * 8;
   const currentTime = (progress / 100) * TOTAL_TIME;
@@ -154,12 +190,17 @@ export default function Simulation() {
               GravityTrain
             </span>
           </Link>
-          <Link to="/">
-            <Button variant="outline" className="border-indigo-500/50 text-indigo-300 hover:bg-indigo-500/10">
-              <ArrowLeft className="mr-2 w-4 h-4" />
-              Back to Home
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Link to="/concepts" className="text-slate-300 hover:text-white transition-colors text-sm hidden sm:block">Concepts</Link>
+            <Link to="/history" className="text-slate-300 hover:text-white transition-colors text-sm hidden sm:block">History</Link>
+            <a href="https://www.naatak.org/portfolio/2026-hole/" target="_blank" rel="noopener noreferrer">
+              <Button className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-xs sm:text-sm px-2 sm:px-4">
+                <span className="hidden sm:inline">Book Tickets</span>
+                <span className="sm:hidden">Book</span>
+                <ExternalLink className="ml-1 sm:ml-2 w-4 h-4" />
+              </Button>
+            </a>
+          </div>
         </div>
       </nav>
 
@@ -218,120 +259,196 @@ export default function Simulation() {
               <span className="text-2xl font-bold text-indigo-400">{distance.toFixed(0)} km</span>
             </div>
           </div>
+
+          <div className="mt-4 flex items-center gap-3">
+            <Checkbox
+              id="show-brachistochrone"
+              checked={showBrachistochrone}
+              disabled={isPlaying}
+              onCheckedChange={(checked) => {
+                setShowBrachistochrone(Boolean(checked));
+              }}
+            />
+            <Label htmlFor="show-brachistochrone" className="text-slate-300">
+              Show Brachistochrone curve comparison
+            </Label>
+          </div>
         </Card>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Visualization */}
+          {/* Visualization - Two Earths side by side */}
           <div className="lg:col-span-2">
-            <Card className="bg-slate-800/50 border-indigo-900/30 p-8">
-              <div className="relative w-full aspect-square max-w-2xl mx-auto">
-                <svg className="w-full h-full" viewBox="0 0 400 400">
-                  <defs>
-                    <radialGradient id="earthGrad">
-                      <stop offset="0%" stopColor="#4f46e5" />
-                      <stop offset="50%" stopColor="#3730a3" />
-                      <stop offset="100%" stopColor="#1e1b4b" />
-                    </radialGradient>
-                    <linearGradient id="tunnelGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#6366f1" opacity="0.8" />
-                      <stop offset="50%" stopColor="#a78bfa" opacity="0.9" />
-                      <stop offset="100%" stopColor="#6366f1" opacity="0.8" />
-                    </linearGradient>
-                  </defs>
+            <Card className="bg-slate-800/50 border-indigo-900/30 p-6">
+              <div
+                className={`grid gap-4 ${showBrachistochrone ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 max-w-md mx-auto"}`}
+              >
+                {/* LEFT: Gravity Tunnel */}
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-green-400 mb-2">Gravity Tunnel</h3>
+                  <p className="text-sm text-slate-400 mb-2">Straight path through Earth</p>
+                  <div className="relative aspect-square">
+                    <svg className="w-full h-full" viewBox="-20 0 240 200">
+                      <defs>
+                        <radialGradient id="earthGrad1">
+                          <stop offset="0%" stopColor="#4f46e5" />
+                          <stop offset="50%" stopColor="#3730a3" />
+                          <stop offset="100%" stopColor="#1e1b4b" />
+                        </radialGradient>
+                      </defs>
 
-                  {/* Earth */}
-                  <circle cx="200" cy="200" r="150" fill="url(#earthGrad)" opacity="0.4" />
-                  <circle cx="200" cy="200" r="150" fill="none" stroke="#4f46e5" strokeWidth="2" opacity="0.3" />
-                  
-                  {/* Concentric circles for depth reference */}
-                  <circle cx="200" cy="200" r="100" fill="none" stroke="#4f46e5" strokeWidth="1" opacity="0.15" />
-                  <circle cx="200" cy="200" r="50" fill="none" stroke="#4f46e5" strokeWidth="1" opacity="0.15" />
-                  
-                  {(() => {
-                    const theta = distance / EARTH_RADIUS;
-                    const angle = Math.min(theta, Math.PI / 2);
-                    
-                    const x1 = 200 - 150 * Math.sin(angle);
-                    const y1 = 200 - 150 * Math.cos(angle);
-                    const x2 = 200 + 150 * Math.sin(angle);
-                    const y2 = 200 - 150 * Math.cos(angle);
-                    
-                    const trainX = x1 + (x2 - x1) * position.x;
-                    const trainY = y1 + (y2 - y1) * position.x;
+                      {/* Earth */}
+                      <circle cx="100" cy="100" r="80" fill="url(#earthGrad1)" opacity="0.4" />
+                      <circle cx="100" cy="100" r="80" fill="none" stroke="#22c55e" strokeWidth="2" opacity="0.5" />
+                      
+                      {/* Concentric circles */}
+                      <circle cx="100" cy="100" r="53" fill="none" stroke="#4f46e5" strokeWidth="1" opacity="0.15" />
+                      <circle cx="100" cy="100" r="27" fill="none" stroke="#4f46e5" strokeWidth="1" opacity="0.15" />
+                      
+                      {(() => {
+                        const theta = distance / EARTH_RADIUS;
+                        const angle = Math.min(theta, Math.PI / 2);
+                        
+                        const x1 = 100 - 80 * Math.sin(angle);
+                        const y1 = 100 - 80 * Math.cos(angle);
+                        const x2 = 100 + 80 * Math.sin(angle);
+                        const y2 = 100 - 80 * Math.cos(angle);
+                        
+                        const trainX = x1 + (x2 - x1) * position.x;
+                        const trainY = y1 + (y2 - y1) * position.x;
 
-                    return (
-                      <>
-                        {/* Tunnel - only visible when playing or has progress */}
-                        {(isPlaying || progress > 0) && (
+                        return (
                           <>
-                            {/* Traveled portion (left of train) - green */}
-                            <line
-                              x1={x1}
-                              y1={y1}
-                              x2={trainX}
-                              y2={trainY}
-                              stroke="#22c55e"
-                              strokeWidth="8"
-                              strokeLinecap="round"
-                            />
-                            {/* Remaining portion (right of train) - gray */}
-                            <line
-                              x1={trainX}
-                              y1={trainY}
-                              x2={x2}
-                              y2={y2}
-                              stroke="#64748b"
-                              strokeWidth="8"
-                              strokeLinecap="round"
-                            />
+                            {/* Tunnel path */}
+                            {(isPlaying || progress > 0) && (
+                              <>
+                                <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#374151" strokeWidth="4" strokeLinecap="round" />
+                                <line x1={x1} y1={y1} x2={trainX} y2={trainY} stroke="#22c55e" strokeWidth="4" strokeLinecap="round" />
+                              </>
+                            )}
+
+                            {/* City markers */}
+                            <circle cx={x1} cy={y1} r="6" fill="#60a5fa" />
+                            <circle cx={x2} cy={y2} r="6" fill="#60a5fa" />
+                            <text x={x1} y={y1 - 10} fill="#94a3b8" fontSize="7" textAnchor="middle" fontWeight="600">{cityA}</text>
+                            <text x={x2} y={y2 - 10} fill="#94a3b8" fontSize="7" textAnchor="middle" fontWeight="600">{cityB}</text>
+
+                            {/* Train ball */}
+                            {(isPlaying || progress > 0) && (
+                              <>
+                                <circle cx={trainX} cy={trainY} r="8" fill="#f59e0b" />
+                                <circle cx={trainX} cy={trainY} r="12" fill="#f59e0b" opacity="0.3" />
+                              </>
+                            )}
+                            
+                            {/* Core */}
+                            <circle cx="100" cy="100" r="3" fill="#fbbf24" opacity="0.6" />
                           </>
-                        )}
+                        );
+                      })()}
+                    </svg>
+                  </div>
+                  <div className="mt-2 text-xl sm:text-2xl font-bold text-green-400">{progress.toFixed(1)}%</div>
+                  <div className="text-xs text-slate-500">~42 min journey</div>
+                </div>
 
-                        {/* City endpoint markers - always visible */}
-                        <circle cx={x1} cy={y1} r="8" fill="#60a5fa" />
-                        <circle cx={x2} cy={y2} r="8" fill="#60a5fa" />
+                {/* RIGHT: Brachistochrone Curve */}
+                {showBrachistochrone && (
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-cyan-400 mb-2">Brachistochrone</h3>
+                  <p className="text-sm text-slate-400 mb-2">Fastest descent curve</p>
+                  <div className="relative aspect-square">
+                    <svg className="w-full h-full" viewBox="-20 0 240 200">
+                      <defs>
+                        <radialGradient id="earthGrad2">
+                          <stop offset="0%" stopColor="#4f46e5" />
+                          <stop offset="50%" stopColor="#3730a3" />
+                          <stop offset="100%" stopColor="#1e1b4b" />
+                        </radialGradient>
+                      </defs>
 
-                        <text x={x1} y={y1 - 15} fill="#94a3b8" fontSize="12" textAnchor="middle" fontWeight="600">
-                          {cityA}
-                        </text>
-                        <text x={x2} y={y2 - 15} fill="#94a3b8" fontSize="12" textAnchor="middle" fontWeight="600">
-                          {cityB}
-                        </text>
+                      {/* Earth */}
+                      <circle cx="100" cy="100" r="80" fill="url(#earthGrad2)" opacity="0.4" />
+                      <circle cx="100" cy="100" r="80" fill="none" stroke="#06b6d4" strokeWidth="2" opacity="0.5" />
+                      
+                      {/* Concentric circles */}
+                      <circle cx="100" cy="100" r="53" fill="none" stroke="#4f46e5" strokeWidth="1" opacity="0.15" />
+                      <circle cx="100" cy="100" r="27" fill="none" stroke="#4f46e5" strokeWidth="1" opacity="0.15" />
+                      
+                      {(() => {
+                        const theta = distance / EARTH_RADIUS;
+                        const angle = Math.min(theta, Math.PI / 2);
+                        
+                        const x1 = 100 - 80 * Math.sin(angle);
+                        const y1 = 100 - 80 * Math.cos(angle);
+                        const x2 = 100 + 80 * Math.sin(angle);
+                        const y2 = 100 - 80 * Math.cos(angle);
+                        
+                        // Brachistochrone curve (quadratic bezier curving toward center)
+                        const midX = 100;
+                        const midY = 100 + 30;
+                        
+                        const t = brachistoPosition.t;
+                        const bX = (1-t)*(1-t)*x1 + 2*(1-t)*t*midX + t*t*x2;
+                        const bY = (1-t)*(1-t)*y1 + 2*(1-t)*t*midY + t*t*y2;
 
-                        {/* Train - only visible when playing or has progress */}
-                        {(isPlaying || progress > 0) && (
-                          <g>
-                            {/* Progress label above the train */}
-                            <text 
-                              x={trainX} 
-                              y={trainY - 30} 
-                              fill="#f59e0b" 
-                              fontSize="14" 
-                              textAnchor="middle" 
-                              fontWeight="700"
-                            >
-                              {progress.toFixed(1)}%
-                            </text>
-                            {/* Train ball - orange/amber */}
-                            <circle cx={trainX} cy={trainY} r="10" fill="#f59e0b" />
-                            <circle cx={trainX} cy={trainY} r="16" fill="#f59e0b" opacity="0.3" />
-                            <circle cx={trainX} cy={trainY} r="22" fill="#f59e0b" opacity="0.15" className="animate-pulse" />
-                          </g>
-                        )}
-                      </>
-                    );
-                  })()}
-                  
-                  {/* Center point */}
-                  <circle cx="200" cy="200" r="4" fill="#fbbf24" opacity="0.6" />
-                  <text x="200" y="220" fill="#fbbf24" fontSize="11" textAnchor="middle" opacity="0.8">
-                    Core
-                  </text>
-                </svg>
+                        return (
+                          <>
+                            {/* Curve path */}
+                            {(isPlaying || brachistoProgress > 0) && (
+                              <>
+                                <path
+                                  d={`M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`}
+                                  fill="none"
+                                  stroke="#374151"
+                                  strokeWidth="4"
+                                  strokeLinecap="round"
+                                />
+                                <path
+                                  d={`M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`}
+                                  fill="none"
+                                  stroke="#06b6d4"
+                                  strokeWidth="4"
+                                  strokeLinecap="round"
+                                  pathLength={100}
+                                  strokeDasharray={`${brachistoProgress} ${Math.max(0, 100 - brachistoProgress)}`}
+                                  strokeDashoffset={0}
+                                />
+                              </>
+                            )}
+
+                            {/* City markers */}
+                            <circle cx={x1} cy={y1} r="6" fill="#60a5fa" />
+                            <circle cx={x2} cy={y2} r="6" fill="#60a5fa" />
+                            <text x={x1} y={y1 - 10} fill="#94a3b8" fontSize="7" textAnchor="middle" fontWeight="600">{cityA}</text>
+                            <text x={x2} y={y2 - 10} fill="#94a3b8" fontSize="7" textAnchor="middle" fontWeight="600">{cityB}</text>
+
+                            {/* Ball */}
+                            {(isPlaying || brachistoProgress > 0) && (
+                              <>
+                                <circle cx={bX} cy={bY} r="8" fill="#06b6d4" />
+                                <circle cx={bX} cy={bY} r="12" fill="#06b6d4" opacity="0.3" />
+                              </>
+                            )}
+                            
+                            {/* Core */}
+                            <circle cx="100" cy="100" r="3" fill="#fbbf24" opacity="0.6" />
+                          </>
+                        );
+                      })()}
+                    </svg>
+                  </div>
+                  <div className="mt-2 text-xl sm:text-2xl font-bold text-cyan-400">{brachistoProgress.toFixed(1)}%</div>
+                  <div className="text-xs text-slate-500">~38 min (faster!)</div>
+                  {brachistoProgress >= 100 && progress < 100 && (
+                    <div className="text-sm font-bold text-cyan-400 animate-pulse">WINNER!</div>
+                  )}
+                </div>
+                )}
               </div>
+            </Card>
 
               {/* Controls */}
-              <div className="mt-8 space-y-6">
+              <Card className="bg-slate-800/50 border-indigo-900/30 p-6 mt-4">
                 <div className="flex items-center justify-center gap-4">
                   <Button
                     size="lg"
@@ -360,9 +477,7 @@ export default function Simulation() {
                     Reset
                   </Button>
                 </div>
-
-              </div>
-            </Card>
+              </Card>
           </div>
 
           {/* Stats & Controls */}
@@ -378,19 +493,55 @@ export default function Simulation() {
                   </div>
                 </div>
                 <div className="h-px bg-slate-700"></div>
-                <div>
-                  <div className="text-sm text-slate-400 mb-1">Current Speed</div>
-                  <div className="text-3xl font-bold text-purple-400">
-                    {currentSpeed.toFixed(2)} <span className="text-lg">km/s</span>
-                  </div>
-                </div>
-                <div className="h-px bg-slate-700"></div>
-                <div>
-                  <div className="text-sm text-slate-400 mb-1">Max Depth</div>
-                  <div className="text-2xl font-bold text-green-400">
-                    {position.depth.toFixed(0)} <span className="text-sm">km</span>
-                  </div>
-                </div>
+                {showBrachistochrone ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-xs text-green-400 mb-1">Tunnel Speed</div>
+                        <div className="text-xl font-bold text-purple-400">
+                          {currentSpeed.toFixed(2)} <span className="text-xs">km/s</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-cyan-400 mb-1">Cycloid Speed</div>
+                        <div className="text-xl font-bold text-cyan-400">
+                          {(Math.sin(brachistoProgress / 100 * Math.PI) * 8).toFixed(2)} <span className="text-xs">km/s</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="h-px bg-slate-700"></div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-xs text-green-400 mb-1">Tunnel Depth</div>
+                        <div className="text-lg font-bold text-green-400">
+                          {position.depth.toFixed(0)} <span className="text-xs">km</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-cyan-400 mb-1">Cycloid Depth</div>
+                        <div className="text-lg font-bold text-cyan-400">
+                          {(Math.sin(brachistoProgress / 100 * Math.PI) * distance / 2 * 0.3).toFixed(0)} <span className="text-xs">km</span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <div className="text-sm text-slate-400 mb-1">Current Speed</div>
+                      <div className="text-3xl font-bold text-purple-400">
+                        {currentSpeed.toFixed(2)} <span className="text-lg">km/s</span>
+                      </div>
+                    </div>
+                    <div className="h-px bg-slate-700"></div>
+                    <div>
+                      <div className="text-sm text-slate-400 mb-1">Max Depth</div>
+                      <div className="text-2xl font-bold text-green-400">
+                        {position.depth.toFixed(0)} <span className="text-sm">km</span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </Card>
 

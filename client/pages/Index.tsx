@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
-import { ArrowRight, Zap, Globe, Timer, TrendingDown } from "lucide-react";
+import { ArrowRight, Zap, Globe, Timer, TrendingDown, BookOpen, ExternalLink, Users } from "lucide-react";
 
 export default function Index() {
   return (
@@ -17,13 +17,17 @@ export default function Index() {
               GravityTrain
             </span>
           </div>
-          <div className="hidden md:flex items-center gap-8">
-            <a href="#concept" className="text-slate-300 hover:text-white transition-colors">Concept</a>
-            <a href="#physics" className="text-slate-300 hover:text-white transition-colors">Physics</a>
-            <a href="#benefits" className="text-slate-300 hover:text-white transition-colors">Benefits</a>
-            <Button variant="outline" className="border-indigo-500/50 text-indigo-300 hover:bg-indigo-500/10">
-              Learn More
-            </Button>
+          <div className="hidden md:flex items-center gap-6">
+            <Link to="/simulation" className="text-slate-300 hover:text-white transition-colors">Simulation</Link>
+            <Link to="/concepts" className="text-slate-300 hover:text-white transition-colors">Concepts</Link>
+            <Link to="/history" className="text-slate-300 hover:text-white transition-colors">History</Link>
+            <Link to="/about" className="text-slate-300 hover:text-white transition-colors">About</Link>
+            <a href="https://www.naatak.org/portfolio/2026-hole/" target="_blank" rel="noopener noreferrer">
+              <Button className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500">
+                Book Tickets
+                <ExternalLink className="ml-2 w-4 h-4" />
+              </Button>
+            </a>
           </div>
         </div>
       </nav>
@@ -52,13 +56,14 @@ export default function Index() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link to="/simulation">
                 <Button size="lg" className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-8">
-                  Explore the Science
+                  Try the Simulation
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
-              <Link to="/simulation">
+              <Link to="/concepts">
                 <Button size="lg" variant="outline" className="border-indigo-500/50 text-indigo-300 hover:bg-indigo-500/10">
-                  Watch Simulation
+                  <BookOpen className="mr-2 w-5 h-5" />
+                  Learn the Physics
                 </Button>
               </Link>
             </div>
@@ -238,6 +243,22 @@ export default function Index() {
         </div>
       </section>
 
+      {/* CTA Section */}
+      <section className="py-20">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <h2 className="text-4xl font-bold text-white mb-4">Experience "Hole"</h2>
+          <p className="text-slate-300 mb-8 text-lg">
+            This interactive experience is part of Naatak's upcoming theatrical production exploring gravity trains and the human stories that unfold when science fiction meets reality.
+          </p>
+          <a href="https://www.naatak.org/portfolio/2026-hole/" target="_blank" rel="noopener noreferrer">
+            <Button size="lg" className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500">
+              Book Your Gravity Train Tickets
+              <ExternalLink className="ml-2 w-5 h-5" />
+            </Button>
+          </a>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-indigo-900/30 bg-slate-950/50 py-12">
         <div className="max-w-7xl mx-auto px-6">
@@ -250,8 +271,17 @@ export default function Index() {
                 GravityTrain
               </span>
             </div>
-            <p className="text-slate-400 text-sm">
-              Exploring theoretical physics concepts for future transportation
+            <div className="flex items-center gap-6">
+              <Link to="/simulation" className="text-slate-400 hover:text-white text-sm transition-colors">Simulation</Link>
+              <Link to="/concepts" className="text-slate-400 hover:text-white text-sm transition-colors">Concepts</Link>
+              <Link to="/history" className="text-slate-400 hover:text-white text-sm transition-colors">History</Link>
+              <Link to="/about" className="text-slate-400 hover:text-white text-sm transition-colors">About</Link>
+              <a href="https://www.naatak.org/portfolio/2026-hole/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white text-sm transition-colors">Naatak</a>
+            </div>
+          </div>
+          <div className="mt-8 pt-8 border-t border-slate-800 text-center">
+            <p className="text-slate-500 text-sm">
+              An interactive lobby experience for "Hole" — A Naatak Production © 2026
             </p>
           </div>
         </div>
